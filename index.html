@@ -1,0 +1,936 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#090a0f">
+  <title>Алиса…</title>
+
+  <!-- Единственная внешняя зависимость — Google Fonts.
+       Без интернета сработает системный рукописный фоллбэк (cursive). -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <!-- media="print" + onload: шрифт не блокирует запуск скрипта.
+       Без интернета просто останется системный cursive-фоллбэк. -->
+  <link rel="stylesheet" media="print" onload="this.media='all'"
+        href="https://fonts.googleapis.com/css2?family=Great+Vibes&display=swap">
+  <noscript>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Great+Vibes&display=swap">
+  </noscript>
+
+  <style>
+    /* ============ БАЗА ============ */
+    :root {
+      /* мягкое свечение для рукописного текста */
+      --glow: 0 0 10px rgba(255, 255, 255, .65),
+              0 0 28px rgba(255, 170, 220, .55),
+              0 0 55px rgba(150, 180, 255, .35);
+      --font-hand: 'Great Vibes', 'Segoe Script', 'Brush Script MT', cursive;
+      --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; }
+
+    html, body { height: 100%; }
+
+    html { background: #090a0f; }
+
+    body {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      position: fixed;            /* не 100vh: на iOS адресная строка не «дёргает» экран */
+      inset: 0;
+      overflow: hidden;
+      color: #fff;
+      font-family: var(--font-sans);
+      background: radial-gradient(ellipse at 50% 35%, #1b2735 0%, #131b26 42%, #090a0f 74%);
+      -webkit-tap-highlight-color: transparent;   /* без синей вспышки при тапе */
+      -webkit-touch-callout: none;
+      -webkit-user-select: none;
+      user-select: none;
+      touch-action: manipulation;                 /* без двойного тапа-зума */
+      overscroll-behavior: none;
+    }
+
+    /* ============ ЗВЁЗДЫ ============ */
+    #stars {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      display: block;
+      z-index: 0;
+    }
+
+    /* ============ ЭКРАНЫ ============ */
+    .screen {
+      position: fixed;
+      inset: 0;
+      z-index: 2;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+    }
+
+    /* ---------- стартовый экран ---------- */
+    #startScreen {
+      z-index: 4;
+      flex-direction: column;
+      gap: clamp(28px, 8vh, 64px);
+      padding: max(20px, env(safe-area-inset-top)) 20px max(20px, env(safe-area-inset-bottom));
+      transition: opacity .9s ease;
+    }
+
+    #startScreen.is-hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .title {
+      margin: 0;
+      font-family: var(--font-hand);
+      font-weight: 400;
+      font-size: clamp(52px, 17vw, 96px);
+      line-height: 1.05;
+      text-shadow: var(--glow);
+      animation: titleIn 1.8s ease-out both;
+    }
+
+    @keyframes titleIn {
+      from { opacity: 0; transform: translateY(14px) scale(.96); }
+      to   { opacity: 1; transform: none; }
+    }
+
+    .start-btn {
+      appearance: none;
+      -webkit-appearance: none;
+      min-width: 200px;
+      min-height: 56px;            /* удобная мишень для пальца */
+      padding: 14px 34px;
+      border-radius: 999px;
+      border: 1px solid rgba(255, 255, 255, .35);
+      background: rgba(255, 255, 255, .07);
+      color: #fff;
+      font-family: var(--font-sans);
+      font-size: 18px;
+      letter-spacing: .08em;
+      cursor: pointer;
+      animation: pulse 2.4s ease-in-out infinite;
+      transition: transform .2s ease;
+    }
+
+    .start-btn:active { transform: scale(.96); }
+
+    @keyframes pulse {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(255, 205, 235, .38), 0 0 22px rgba(255, 170, 220, .25); }
+      50%      { box-shadow: 0 0 0 16px rgba(255, 205, 235, 0), 0 0 46px rgba(255, 170, 220, .55); }
+    }
+
+    /* ---------- основной экран ---------- */
+    #mainScreen {
+      flex-direction: column;
+      gap: clamp(18px, 4vh, 32px);
+      padding: 24px;
+      pointer-events: none;        /* тапы проходят насквозь, к слою комплиментов */
+      transition: opacity .8s ease;
+    }
+
+    /* на финале центральный текст уступает место поздравлению */
+    #mainScreen.is-finale { opacity: 0; }
+
+    .main-message {
+      margin: 0;
+      font-family: var(--font-hand);
+      font-weight: 400;
+      font-size: clamp(34px, 10.5vw, 60px);
+      line-height: 1.15;
+      text-shadow: var(--glow);
+      opacity: 0;
+      transform: translateY(10px);
+      transition: opacity 2.5s ease, transform 2.5s ease;
+    }
+
+    #mainScreen.is-awake .main-message {
+      opacity: 1;
+      transform: none;
+    }
+
+    .hint {
+      margin: 0;
+      font-family: var(--font-sans);
+      font-size: clamp(13px, 3.6vw, 15px);
+      letter-spacing: .22em;
+      text-transform: uppercase;
+      opacity: 0;                  /* подсказка ждёт старта */
+      transition: opacity .9s ease;
+    }
+
+    /* появляется вместе с основным экраном */
+    #mainScreen.is-awake .hint { opacity: .7; }
+
+    /* ...и уходит через 6 секунд (ID в селекторе нужен,
+       чтобы перебить правило появления выше) */
+    #mainScreen.is-awake .hint.is-gone { opacity: 0; }
+
+    /* ============ КОМПЛИМЕНТЫ ============ */
+    #complimentLayer {
+      position: fixed;
+      inset: 0;
+      z-index: 5;
+      pointer-events: none;        /* слой не перехватывает касания */
+      overflow: hidden;
+    }
+
+    .compliment {
+      position: fixed;
+      left: 0;
+      top: 0;
+      max-width: 80vw;             /* не шире 80% экрана */
+      font-family: var(--font-hand);
+      font-size: clamp(22px, 6.2vw, 26px);
+      line-height: 1.3;
+      color: #fff;
+      text-align: center;
+      text-wrap: balance;
+      overflow-wrap: break-word;
+      text-shadow: var(--glow);
+      transform: translate(-50%, -50%);
+      will-change: transform, opacity;
+      animation: floatUp 2.5s ease-out forwards;
+      pointer-events: none;
+    }
+
+    .compliment .emoji {
+      font-family: var(--font-sans);
+      font-size: .8em;
+    }
+
+    /* всплытие вверх на 120–150px и плавное исчезновение */
+    @keyframes floatUp {
+      0%   { opacity: 0; transform: translate(-50%, -50%) scale(.85); }
+      12%  { opacity: 1; transform: translate(-50%, -54%) scale(1); }
+      70%  { opacity: .92; }
+      100% { opacity: 0; transform: translate(-50%, calc(-50% - var(--rise, 140px))) scale(1.04); }
+    }
+
+    /* ============ КАРАОКЕ: СУБТИТРЫ ============ */
+    #lyrics {
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: max(12vh, calc(env(safe-area-inset-bottom) + 28px));
+      z-index: 3;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+      padding: 0 18px;
+      text-align: center;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity .8s ease;
+    }
+
+    #lyrics.is-visible { opacity: 1; }
+
+    .lyric-line {
+      max-width: 86vw;
+      font-family: var(--font-hand);
+      font-size: clamp(28px, 7.2vw, 32px);
+      line-height: 1.25;
+      color: #fff;
+      text-shadow: var(--glow);
+      text-wrap: balance;
+      overflow-wrap: break-word;
+      opacity: .25;                /* неактивная строка */
+      transition: opacity .4s ease;
+    }
+
+    .lyric-line.is-active { opacity: 1; }
+
+    /* короткий fade при смене строки */
+    .lyric-line.swap { animation: lyricSwap .4s ease; }
+
+    @keyframes lyricSwap {
+      from { opacity: 0; }
+    }
+
+    /* ============ СЕРДЕЧКО-МАРКЕР ============ */
+    #heartMarker {
+      position: fixed;
+      left: 50%;
+      top: 0;
+      z-index: 4;
+      font-size: 24px;              /* 22–28px */
+      line-height: 1;
+      pointer-events: none;
+      opacity: 0;
+      transform: translate(-50%, -50%);
+      transition: left .4s ease, top .3s ease, opacity .8s ease;
+      will-change: left, top;
+    }
+
+    #heartMarker.is-visible { opacity: 1; }
+
+    #heartMarker .heart-emoji {
+      display: inline-block;
+      transform-origin: center;
+    }
+
+    #heartMarker.is-popping .heart-emoji {
+      animation: heartPop .6s ease;
+    }
+
+    @keyframes heartPop {
+      0%   { transform: scale(1);   filter: brightness(1); }
+      40%  { transform: scale(1.3); filter: brightness(2); }
+      100% { transform: scale(1);   filter: brightness(1); }
+    }
+
+    .spark {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      font-size: 12px;
+      line-height: 1;
+      pointer-events: none;
+      opacity: 0;
+      transform: translate(-50%, -50%);
+      animation: sparkFly .8s ease-out forwards;
+    }
+
+    @keyframes sparkFly {
+      0%   { opacity: 0; transform: translate(-50%, -50%) scale(.4); }
+      25%  { opacity: 1; }
+      100% { opacity: 0; transform: translate(calc(-50% + var(--dx, 0px)), calc(-50% + var(--dy, 0px))) scale(1); }
+    }
+
+    /* ============ ФИНАЛЬНЫЙ ЭКРАН ============ */
+    #finale {
+      position: fixed;
+      inset: 0;
+      z-index: 4;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 20px;
+      padding: 24px;
+      text-align: center;
+      pointer-events: none;         /* тапы продолжают работать */
+      opacity: 0;
+      transform: scale(.95);
+      transition: opacity 1.5s ease, transform 1.5s ease;
+    }
+
+    #finale.is-visible { opacity: 1; transform: scale(1); }
+
+    .finale-text {
+      margin: 0;
+      font-family: var(--font-hand);
+      font-weight: 400;
+      font-size: clamp(40px, 11vw, 48px);
+      line-height: 1.3;
+      color: #fff;
+      text-shadow: 0 0 30px rgba(255, 215, 0, .6),
+                   0 0 60px rgba(255, 215, 0, .35),
+                   0 0 12px rgba(255, 255, 255, .45);
+    }
+
+    .finale-heart {
+      font-size: 34px;
+      line-height: 1;
+      animation: heartBeat 1.5s ease-in-out infinite;
+    }
+
+    @keyframes heartBeat {
+      0%, 100% { transform: scale(1); }
+      50%      { transform: scale(1.15); }
+    }
+
+    /* ============ АДАПТАЦИЯ ============ */
+    /* ландшафт на телефоне: всё остаётся в центре, просто компактнее */
+    @media (max-height: 430px) and (orientation: landscape) {
+      #startScreen { gap: 18px; }
+      .title { font-size: clamp(40px, 10vw, 64px); }
+      .main-message { font-size: clamp(28px, 6vw, 40px); }
+    }
+
+    /* если в системе включено «уменьшение движения» — не мигаем кнопкой */
+    @media (prefers-reduced-motion: reduce) {
+      .start-btn { animation: none; }
+      .title { animation: none; }
+    }
+  </style>
+</head>
+<body>
+  <!-- Ночное небо -->
+  <canvas id="stars" aria-hidden="true"></canvas>
+
+  <!-- Стартовый экран: разблокирует звук по тапу -->
+  <section id="startScreen" class="screen">
+    <h1 class="title">Алиса…</h1>
+    <button id="startBtn" class="start-btn" type="button">Нажми ✨</button>
+  </section>
+
+  <!-- Основной экран -->
+  <section id="mainScreen" class="screen" aria-live="polite">
+    <p class="main-message">Этот мир создан для тебя</p>
+    <p class="hint" id="hint">касайся экрана — и увидишь</p>
+  </section>
+
+  <!-- Сюда добавляются комплименты -->
+  <div id="complimentLayer" aria-hidden="true"></div>
+
+  <!-- Караоке-субтитры и сердечко-маркер -->
+  <div id="lyrics" aria-hidden="true">
+    <div class="lyric-line" id="lyricCurrent"></div>
+    <div class="lyric-line" id="lyricNext"></div>
+  </div>
+  <div id="heartMarker" aria-hidden="true"><span class="heart-emoji">💖</span></div>
+
+  <!-- Финальный экран (появляется после окончания песни) -->
+  <div id="finale" aria-live="polite">
+    <p class="finale-text">С годовщиной,<br>моя будущая жена</p>
+    <div class="finale-heart">💖</div>
+  </div>
+
+  <!-- Музыка: положите music.mp3 рядом с index.html -->
+  <!-- loop намеренно убран: иначе 'ended' не срабатывает и песня начинается заново под финалом -->
+  <audio id="music" src="music.mp3" preload="auto"></audio>
+
+  <script>
+    /* ============================================================
+       1. КОМПЛИМЕНТЫ
+       Меняйте/добавляйте тексты прямо здесь — массив можно
+       заменить целиком. Оптимальная длина фразы — до ~45 символов.
+       ============================================================ */
+    const COMPLIMENTS = [
+      "Твоя улыбка освещает всё вокруг",
+      "Ты — моё самое красивое чудо",
+      "С тобой каждый день — праздник",
+      "Ты умнее, чем думаешь",
+      "Твои глаза — как звёзды",
+      "Ты делаешь этот мир добрее",
+      "Твой смех — моя любимая музыка",
+      "Ты — воплощение нежности",
+      "С тобой даже тишина красива",
+      "Ты вдохновляешь меня каждый день",
+      "Твоя доброта не знает границ",
+      "Ты — лучшее, что со мной случилось",
+      "Твоя красота — внутри и снаружи",
+      "Ты умеешь делать обычное волшебным",
+      "Твой голос успокаивает",
+      "Ты — моя вселенная",
+      "С тобой я дома",
+      "Ты — моё вдохновение",
+      "Твоя забота — бесценна",
+      "Ты — моя мечта, которая сбылась",
+      // --- дополнительные ---
+      "В твоих глазах живёт целый мир",
+      "Ты — причина моей улыбки",
+      "Мне повезло с тобой больше, чем можно пожелать",
+      "Ты прекрасна — даже когда молчишь",
+      "С тобой хочется встречать каждый рассвет",
+      "Ты — моя тихая гавань",
+      "Рядом с тобой время замирает",
+      "Ты — самый тёплый свет в моей ночи",
+      "С тобой даже звёзды светят ярче",
+      "Ты — моё самое любимое «навсегда»"
+    ];
+
+    /* Эмодзи рядом с комплиментом — можно поменять на свои */
+    const EMOJIS = ["💖", "✨", "💫", "🌸"];
+
+    const MAX_ON_SCREEN = 5;      // одновременно не больше 5 комплиментов
+    const RISE_MIN = 120;         // минимальный подъём, px
+    const RISE_MAX = 150;         // максимальный подъём, px
+    const LIFETIME = 2500;        // время жизни, мс (совпадает с анимацией)
+
+    /* ============================================================
+       2. ЭЛЕМЕНТЫ И СОСТОЯНИЕ
+       ============================================================ */
+    const startScreen = document.getElementById("startScreen");
+    const startBtn = document.getElementById("startBtn");
+    const mainScreen = document.getElementById("mainScreen");
+    const hint = document.getElementById("hint");
+    const layer = document.getElementById("complimentLayer");
+    const music = document.getElementById("music");
+
+    const reduceMotion = window.matchMedia
+      ? window.matchMedia("(prefers-reduced-motion: reduce)").matches
+      : false;
+
+    let started = false;
+    let lastTouchAt = 0;
+    let lastComplimentIndex = -1;
+    const activeCompliments = [];   // живые элементы {el, timer}
+
+    /* ============================================================
+       3. ЗВЁЗДНОЕ НЕБО (Canvas 2D)
+       ============================================================ */
+    const canvas = document.getElementById("stars");
+    const ctx = canvas.getContext("2d");
+
+    let W = 0;                 // ширина в CSS-пикселях
+    let H = 0;
+    let stars = [];
+    let rafId = null;
+    let resizeTimer = null;
+
+    function initStars() {
+      // devicePixelRatio — чтобы звёзды были чёткими на Retina
+      const dpr = Math.min(window.devicePixelRatio || 1, 2.5);
+      W = window.innerWidth;
+      H = window.innerHeight;
+
+      canvas.width = Math.floor(W * dpr);
+      canvas.height = Math.floor(H * dpr);
+      canvas.style.width = W + "px";
+      canvas.style.height = H + "px";
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+      // 90 звёзд на телефоне, 150 на десктопе
+      const count = W < 768 ? 90 : 150;
+      stars = [];
+
+      for (let i = 0; i < count; i++) {
+        const tintRoll = Math.random();
+        stars.push({
+          x: Math.random() * W,
+          y: Math.random() * H,
+          r: 0.4 + Math.random() * 1.4,                 // радиус
+          speed: 0.06 + Math.random() * 0.35,           // скорость подъёма
+          alpha: 0.35 + Math.random() * 0.6,            // базовая яркость
+          phase: Math.random() * Math.PI * 2,           // фаза мерцания
+          twinkle: 0.4 + Math.random() * 1.2,           // частота мерцания
+          tint: tintRoll < 0.18 ? "pink" : (tintRoll < 0.36 ? "blue" : "white")
+        });
+      }
+    }
+
+    function drawStars(time) {
+      ctx.clearRect(0, 0, W, H);
+
+      for (let i = 0; i < stars.length; i++) {
+        const s = stars[i];
+
+        // медленный дрейф вверх; при reduced-motion — почти незаметный
+        s.y -= s.speed * (reduceMotion ? 0.25 : 1);
+        if (s.y < -2) {
+          s.y = H + 2;
+          s.x = Math.random() * W;
+        }
+
+        // мерцание
+        const tw = 0.55 + 0.45 * Math.sin(time * 0.001 * s.twinkle + s.phase);
+        const a = Math.max(0, Math.min(1, s.alpha * tw));
+
+        let rgb = "255,255,255";
+        if (s.tint === "pink") rgb = "255,190,225";
+        else if (s.tint === "blue") rgb = "190,215,255";
+
+        ctx.beginPath();
+        ctx.fillStyle = "rgba(" + rgb + "," + a.toFixed(3) + ")";
+        ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+        ctx.fill();
+
+        // у крупных звёзд — лёгкий ореол
+        if (s.r > 1.25) {
+          ctx.beginPath();
+          ctx.fillStyle = "rgba(" + rgb + "," + (a * 0.1).toFixed(3) + ")";
+          ctx.arc(s.x, s.y, s.r * 3.4, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+    }
+
+    function frame(time) {
+      drawStars(time || 0);
+      rafId = requestAnimationFrame(frame);
+    }
+
+    function startStars() {
+      if (rafId === null) rafId = requestAnimationFrame(frame);
+    }
+
+    function stopStars() {
+      if (rafId !== null) {
+        cancelAnimationFrame(rafId);
+        rafId = null;
+      }
+    }
+
+    /* ============================================================
+       4. КОМПЛИМЕНТЫ: ПОЯВЛЕНИЕ И УДАЛЕНИЕ
+       ============================================================ */
+    function pickCompliment() {
+      if (COMPLIMENTS.length === 0) return "Ты — чудо";
+      if (COMPLIMENTS.length === 1) return COMPLIMENTS[0];
+
+      // случайный выбор без повтора подряд
+      let index = lastComplimentIndex;
+      while (index === lastComplimentIndex) {
+        index = Math.floor(Math.random() * COMPLIMENTS.length);
+      }
+      lastComplimentIndex = index;
+      return COMPLIMENTS[index];
+    }
+
+    function removeCompliment(item) {
+      const pos = activeCompliments.indexOf(item);
+      if (pos !== -1) activeCompliments.splice(pos, 1);
+      if (item.timer) clearTimeout(item.timer);
+      if (item.el && item.el.parentNode) item.el.parentNode.removeChild(item.el);
+    }
+
+    function spawnCompliment(clientX, clientY) {
+      // держим не больше 5 одновременно: самый старый убираем
+      if (activeCompliments.length >= MAX_ON_SCREEN) {
+        removeCompliment(activeCompliments[0]);
+      }
+
+      const text = pickCompliment();
+      const emoji = EMOJIS[Math.floor(Math.random() * EMOJIS.length)];
+
+      const el = document.createElement("div");
+      el.className = "compliment";
+      el.textContent = text + " ";
+
+      const em = document.createElement("span");
+      em.className = "emoji";
+      em.textContent = emoji;
+      el.appendChild(em);
+
+      // временно прячем за экраном, чтобы измерить реальную ширину
+      el.style.left = "-9999px";
+      el.style.top = "-9999px";
+      layer.appendChild(el);
+
+      const width = el.offsetWidth;
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+      const half = width / 2;
+
+      // clamp по X: элемент не выходит за края (отступ 10px)
+      const minX = Math.min(half + 10, vw / 2);
+      const maxX = Math.max(vw - half - 10, vw / 2);
+      const x = Math.min(Math.max(clientX, minX), maxX);
+
+      // стартовая точка по Y — в пределах экрана
+      const y = Math.min(Math.max(clientY, 70), vh - 80);
+
+      el.style.left = x + "px";
+      el.style.top = y + "px";
+      el.style.setProperty("--rise", Math.round(RISE_MIN + Math.random() * (RISE_MAX - RISE_MIN)) + "px");
+
+      const item = { el: el, timer: null };
+      activeCompliments.push(item);
+
+      const cleanup = function () { removeCompliment(item); };
+
+      // исчез — убираем из DOM
+      el.addEventListener("animationend", cleanup, { once: true });
+      // страховка, если animationend не придёт
+      item.timer = setTimeout(cleanup, LIFETIME + 500);
+    }
+
+    /* ============================================================
+       5. СТАРТ: ЭКРАН, ТЕКСТ, МУЗЫКА
+       ============================================================ */
+    function startMusic() {
+      if (!music) return;
+      try {
+        music.volume = 0;
+        const promise = music.play();
+
+        if (promise && typeof promise.then === "function") {
+          promise.then(fadeMusicIn).catch(function () {
+            /* файла нет или автоплей заблокирован — просто тишина */
+          });
+        } else {
+          fadeMusicIn();
+        }
+      } catch (e) {
+        /* молча: без музыки приложение полностью работает */
+      }
+    }
+
+    // плавное нарастание громкости 0 → 0.6 за ~3 секунды
+    function fadeMusicIn() {
+      const target = 0.6;
+      const steps = 30;          // 30 шагов × 100 мс ≈ 3 с
+      let step = 0;
+
+      const timer = setInterval(function () {
+        step++;
+        try {
+          music.volume = Math.min(target, target * (step / steps));
+        } catch (e) { /* iOS может игнорировать volume — не страшно */ }
+
+        if (step >= steps) clearInterval(timer);
+      }, 100);
+    }
+
+    function startExperience() {
+      if (started) return;
+      started = true;
+
+      // стартовый экран плавно уходит
+      startScreen.classList.add("is-hidden");
+      setTimeout(function () { startScreen.style.display = "none"; }, 950);
+
+      // основной текст проявляется за 2.5 с (CSS)
+      mainScreen.classList.add("is-awake");
+
+      // подсказка исчезает через 6 секунд
+      setTimeout(function () { hint.classList.add("is-gone"); }, 6000);
+
+      startMusic();
+    }
+
+    /* ============================================================
+       6. СОБЫТИЯ
+       ============================================================ */
+    startBtn.addEventListener("click", startExperience);
+
+    // iPhone/Android: тап пальцем
+    window.addEventListener("touchstart", function (e) {
+      if (!started) return;
+      if (e.target && e.target.closest && e.target.closest("#startBtn")) return;
+
+      lastTouchAt = Date.now();
+
+      const touch = e.changedTouches && e.changedTouches[0];
+      if (!touch) return;
+      spawnCompliment(touch.clientX, touch.clientY);
+    }, { passive: true });
+
+    // Десктоп: клик мышью. На тач-устройствах click после touchstart игнорируем,
+    // чтобы комплимент не появлялся дважды.
+    window.addEventListener("click", function (e) {
+      if (!started) return;
+      if (e.target && e.target.closest && e.target.closest("#startBtn")) return;
+      if (Date.now() - lastTouchAt < 800) return;
+      spawnCompliment(e.clientX, e.clientY);
+    });
+
+    // Safari: запрет жестового зума
+    document.addEventListener("gesturestart", function (e) { e.preventDefault(); });
+
+    /* ============================================================
+       7. РАЗМЕРЫ И ЖИЗНЕННЫЙ ЦИКЛ
+       ============================================================ */
+    function onResize() {
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(function () {
+        initStars();
+      }, 150);
+    }
+
+    window.addEventListener("resize", onResize);
+    window.addEventListener("orientationchange", onResize);
+
+    // не жжём батарею во вкладке-фоне
+    document.addEventListener("visibilitychange", function () {
+      if (document.hidden) stopStars();
+      else startStars();
+    });
+
+    // аудио: отсутствие music.mp3 не ломает приложение и не пишет ошибок из кода
+    music.addEventListener("error", function () { /* тишина */ });
+
+    /* ============================================================
+       8. КАРАОКЕ: СУБТИТРЫ, СЕРДЕЧКО И ФИНАЛ
+       ============================================================ */
+
+    /* --- СТРОКИ ПЕСНИ ------------------------------------------------
+       Впишите свои строки и тайминги (в секундах от начала трека).
+       Порядок — строго по возрастанию time.                             */
+    const LYRICS = [
+      { time: 0.73,  text: "Ты приснилась мне на днях недавно" },
+      { time: 3.97,  text: "Ты приснилась мне на днях недавно" },
+      { time: 6.47,  text: "Ты приснилась мне на днях недавно" },
+      { time: 9.47,  text: "Где я-где я-где я" },
+      { time: 10.62, text: "Я целую тебя, я целую тебя" },
+      { time: 15.92, text: "Я целую тебя, я целую тебя" },
+      { time: 21.47, text: "Я целую тебя, я целую тебя" },
+      { time: 27.02, text: "Я целую тебя, я целую тебя" },
+      { time: 33.09, text: "И я целую тебя, дым от сигарет" },
+      { time: 35.86, text: "Я твой — ты моя" },
+      { time: 37.31, text: "В моём сердце так темно, я схожу с ума" },
+      { time: 39.94, text: "И в моём сердце круглый год вечная зима" },
+      { time: 42.90, text: "Просыпаюсь, засыпаю, чтоб увидеть тебя" },
+      { time: 45.69, text: "Много открытых ран" },
+      { time: 47.25, text: "Между нами война" },
+      { time: 48.56, text: "И с каждым разом все сильнее" },
+      { time: 50.12, text: "Кругом голова" },
+      { time: 51.15, text: "Я чувствую, как ты стреляешь в меня из АК’а" },
+      { time: 54.23, text: "И засыпая, снова вижу, где я" },
+      { time: 57.21, text: "Где я целую тебя, я целую тебя" },
+      { time: 62.89, text: "Я целую тебя, я целую тебя" },
+      { time: 68.47, text: "Я целую тебя, я целую тебя" },
+      { time: 74.00, text: "Я целую тебя, я целую тебя" },
+      { time: 79.70, text: "Я целую тебя, я целую тебя" },
+      { time: 85.30, text: "Я целую тебя, я целую тебя" },
+      { time: 90.97, text: "Я целую тебя, я целую тебя" },
+      { time: 96.73, text: "Я целую тебя, я целую тебя" },
+      { time: 102.64, text: "Я целую тебя, я целую тебя" }
+    ];
+
+    /* --- ФИНАЛЬНЫЙ ТЕКСТ (правьте здесь) --- */
+    const FINALE_TEXT_HTML = "С годовщиной,<br>моя будущая жена";
+
+    const lyricsBox = document.getElementById("lyrics");
+    const lyricCurrent = document.getElementById("lyricCurrent");
+    const lyricNext = document.getElementById("lyricNext");
+    const heartMarker = document.getElementById("heartMarker");
+    const finale = document.getElementById("finale");
+
+    // текст финала берём из константы выше (HTML — запасной вариант)
+    finale.querySelector(".finale-text").innerHTML = FINALE_TEXT_HTML;
+
+    // показываем слой субтитров при старте (существующий обработчик не трогаем)
+    startBtn.addEventListener("click", function () {
+      lyricsBox.classList.add("is-visible");
+    });
+
+    const SYNC_TOLERANCE = 0.15;   // погрешность синхронизации, сек (iOS «дёргает» currentTime)
+    const END_MARGIN = 0.5;        // финал за 0.5 с до конца — страховка, если 'ended' не придёт
+
+    let activeLyricIndex = -1;
+    let finaleShown = false;
+
+    /* плавное появление строки при смене: перезапуск CSS-анимации */
+    function replaySwap(el) {
+      el.classList.remove("swap");
+      void el.offsetWidth;         // принудительный reflow
+      el.classList.add("swap");
+    }
+
+    /* сердечко — над центром активной строки */
+    function updateHeartPosition() {
+      if (activeLyricIndex < 0) {
+        heartMarker.classList.remove("is-visible");
+        return;
+      }
+      const rect = lyricCurrent.getBoundingClientRect();
+      if (!rect.width) return;
+      heartMarker.style.left = (rect.left + rect.width / 2) + "px";
+      heartMarker.style.top = (rect.top - 16) + "px";
+    }
+
+    /* блеск сердечка + 3–5 искр */
+    function popHeart() {
+      heartMarker.classList.remove("is-popping");
+      void heartMarker.offsetWidth;
+      heartMarker.classList.add("is-popping");
+
+      const count = 3 + Math.floor(Math.random() * 3);   // 3–5
+      for (let i = 0; i < count; i++) {
+        const spark = document.createElement("span");
+        spark.className = "spark";
+        spark.textContent = "✨";
+        const angle = Math.random() * Math.PI * 2;
+        const dist = 18 + Math.random() * 16;
+        spark.style.setProperty("--dx", Math.cos(angle) * dist + "px");
+        spark.style.setProperty("--dy", Math.sin(angle) * dist + "px");
+        heartMarker.appendChild(spark);
+        setTimeout(function () {
+          if (spark.parentNode) spark.parentNode.removeChild(spark);
+        }, 850);
+      }
+    }
+
+    /* показать строку по индексу */
+    function renderLyric(index) {
+      if (index === activeLyricIndex) return;
+      activeLyricIndex = index;
+
+      const line = LYRICS[index] || null;
+      const next = LYRICS[index + 1] || null;
+
+      lyricCurrent.textContent = line ? line.text : "";
+      lyricNext.textContent = next ? next.text : "";
+
+      lyricCurrent.classList.toggle("is-active", !!line);
+      replaySwap(lyricCurrent);
+      replaySwap(lyricNext);
+
+      if (!line) {
+        heartMarker.classList.remove("is-visible");
+        return;
+      }
+
+      // ждём пересчёта вёрстки, затем ставим сердечко и запускаем блеск
+      requestAnimationFrame(function () {
+        updateHeartPosition();
+        heartMarker.classList.add("is-visible");
+        popHeart();
+      });
+    }
+
+    /* какая строка должна звучать в момент t (с погрешностью) */
+    function findLyricIndex(t) {
+      let found = -1;
+      for (let i = 0; i < LYRICS.length; i++) {
+        if (t + SYNC_TOLERANCE >= LYRICS[i].time) found = i;
+        else break;
+      }
+      return found;
+    }
+
+    /* синхронизация по текущему времени трека */
+    function syncLyrics() {
+      if (!LYRICS.length || !isFinite(music.currentTime)) return;
+      const index = findLyricIndex(music.currentTime || 0);
+      if (index >= 0) renderLyric(index);
+    }
+
+    /* финальный экран */
+    function showFinale() {
+      if (finaleShown) return;
+      finaleShown = true;
+
+      // субтитры и сердечко плавно гаснут
+      lyricsBox.classList.remove("is-visible");
+      heartMarker.classList.remove("is-visible");
+      setTimeout(function () {
+        lyricsBox.style.display = "none";
+        heartMarker.style.display = "none";
+      }, 800);
+
+      // центральный текст и подсказка уходят, чтобы не накладываться на финал
+      mainScreen.classList.add("is-finale");
+      hint.classList.add("is-gone");
+
+      // трек зациклен, поэтому останавливаем его на финале вручную
+      try { music.pause(); } catch (e) { /* не критично */ }
+
+      finale.classList.add("is-visible");
+    }
+
+    music.addEventListener("timeupdate", function () {
+      syncLyrics();
+      const d = music.duration;
+      if (isFinite(d) && d > 0 && music.currentTime >= d - END_MARGIN) showFinale();
+    });
+    music.addEventListener("seeked", syncLyrics);
+    music.addEventListener("ended", showFinale);
+
+    // при повороте/ресайзе пересчитываем позицию сердечка
+    window.addEventListener("resize", updateHeartPosition);
+    window.addEventListener("orientationchange", function () {
+      setTimeout(updateHeartPosition, 200);
+    });
+
+    /* ============================================================
+       9. ЗАПУСК
+       ============================================================ */
+    initStars();
+    startStars();
+  </script>
+</body>
+</html>
